@@ -9,7 +9,8 @@ from .poly import Poly
 class Mode(Enum):
   IDLE = 1
   DRAW = 2
-  DEFORM = 3
+  DEFORM_TRANS = 3
+  DEFORM_PROJ = 4
 
 @dataclass()
 class State:
@@ -30,6 +31,11 @@ class Window:
   def __del__(self):
     cv.destroyWindow(self.win)
     
+  def _is_open(self) -> bool:
+    try:
+      return cv.getWindowProperty(self.win, cv.WND_PROP_VISIBLE) >= 1
+    except cv.error:
+      return False
    
   def render(self) -> bool:
     img = np.full((900, 900, 3), 10, np.uint8)
@@ -39,6 +45,8 @@ class Window:
     
     if not self._is_open():
       return False
+    
+    self._draw_keybinds(img)
     
     for poly in self.state.polygons:
       cv.polylines(img, [poly.pts], True, (0, 255, 255))
@@ -52,12 +60,13 @@ class Window:
     
     return True
   
-  def _is_open(self) -> bool:
-    try:
-      return cv.getWindowProperty(self.win, cv.WND_PROP_VISIBLE) >= 1
-    except cv.error:
-      return False
-      
+  def _draw_keybinds(self, img):
+    cv.putText(img, "Draw mode: d", (50, 50), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
+    cv.putText(img, "Deform translation mode: d", (50, 75), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
+    cv.putText(img, "Deform rigid mode: d", (50, 100), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
+    cv.putText(img, "Deform similarity mode: d", (50, 125), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
+    cv.putText(img, "Deform affine mode: d", (50, 150), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
+    cv.putText(img, "Deform perspective mode: d", (50, 175), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
   
   def _on_mouse(self, event, x, y, flags, _: Any):
     self.state.cursor = np.array([x, y])
@@ -65,19 +74,25 @@ class Window:
     
     if self.state.mode == Mode.DRAW:
       self.state.polygons[-1].pts = np.array([[x0, y0], [x0, y,], [x, y], [x, y0]])
-    elif self.state.mode == Mode.DEFORM:
+    elif self.state.mode == Mode.DEFORM_PROJ:
       self.state.selected_pt[:] = self.state.cursor
       
     if event == cv.EVENT_LBUTTONDOWN:
-      for poly in self.state.polygons:
-        for p in poly.pts:
-          if np.linalg.norm(p - np.array([x, y])) <= 100:
-            self.state.mode = Mode.DEFORM
-            self.state.selected_pt = p
-            return
-
-      self.state.mode = Mode.DRAW
-      self.state.drawing_start = self.state.cursor.copy()
-      self.state.polygons.append(Poly(np.tile(self.state.cursor, (4, 1))))
+      if self._select_point():
+        pass
+      else:
+        self.state.mode = Mode.DRAW
+        self.state.drawing_start = self.state.cursor.copy()
+        self.state.polygons.append(Poly(np.tile(self.state.cursor, (4, 1))))
     elif event == cv.EVENT_LBUTTONUP:
       self.state.mode = Mode.IDLE
+      
+  def _select_point(self) -> bool:
+    for poly in self.state.polygons:
+      for p in poly.pts:
+        if np.linalg.norm(p - self.state.cursor) <= 100:
+          self.state.mode = Mode.DEFORM_PROJ
+          self.state.selected_pt = p
+          return True
+    return False
+  
