@@ -72,27 +72,24 @@ class Window:
     self.state.cursor = np.array([x, y])
     x0, y0 = self.state.drawing_start
     
-    if self.state.mode == Mode.DRAW:
-      self.state.polygons[-1].pts = np.array([[x0, y0], [x0, y,], [x, y], [x, y0]])
-    elif self.state.mode == Mode.DEFORM_PROJ:
-      self.state.selected_pt[:] = self.state.cursor
+    match event:
+      case cv.EVENT_LBUTTONDOWN:
+        if self.state.mode in (Mode.DEFORM_PROJ, Mode.DEFORM_TRANS):
+          self._select_point()
+        else: 
+          self.state.mode = Mode.DRAW
+          self.state.drawing_start = self.state.cursor.copy()
+          self.state.polygons.append(Poly(np.tile(self.state.cursor, (4, 1))))
+      case cv.EVENT_LBUTTONUP:
+        self.state.mode = Mode.IDLE
+      case cv.EVENT_MOUSEMOVE:
+        if self.state.mode == Mode.DRAW: self.state.polygons[-1].pts = np.array([[x0, y0], [x0, y,], [x, y], [x, y0]])
+        elif self.state.mode == Mode.DEFORM_PROJ: self.state.selected_pt[:] = self.state.cursor
       
-    if event == cv.EVENT_LBUTTONDOWN:
-      if self._select_point():
-        pass
-      else:
-        self.state.mode = Mode.DRAW
-        self.state.drawing_start = self.state.cursor.copy()
-        self.state.polygons.append(Poly(np.tile(self.state.cursor, (4, 1))))
-    elif event == cv.EVENT_LBUTTONUP:
-      self.state.mode = Mode.IDLE
-      
-  def _select_point(self) -> bool:
+  def _select_point(self):
     for poly in self.state.polygons:
       for p in poly.pts:
         if np.linalg.norm(p - self.state.cursor) <= 100:
           self.state.mode = Mode.DEFORM_PROJ
           self.state.selected_pt = p
-          return True
-    return False
-  
+          return
