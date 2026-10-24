@@ -1,0 +1,29 @@
+[project]
+name = "2d-transform-editor"
+version = "0.1.0"
+description = "2D transforms exercise"
+readme = "README.md"
+
+requires-python = ">=3.14"
+dependencies = [
+    "numpy==2.5.4",
+    "opencv-python==5.0.0.93",
+    "pip==25.1.1",
+]
+
+[project.scripts]
+2d-transform-editor = "2d_transform_editor:main"
+
+[build-system]
+requires = ["uv_build>=0.12.21,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.mypy]
+warn_unused_configs = true
+files = ["tinygrad", "test/mockgpu"]
+ignore_missing_imports = true
+check_untyped_defs = true
+explicit_package_bases = true
+warn_unreachable = true
+warn_redundant_casts = true
+strict_equality = true
