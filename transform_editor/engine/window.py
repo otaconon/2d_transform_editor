@@ -2,21 +2,29 @@ import cv2 as cv
 import numpy as np
 from dataclasses import dataclass, field
 from typing import Any, cast
+from enum import Enum
 
 from .poly import Poly
+
+class Mode(Enum):
+  IDLE = 1
+  DRAW = 2
+  DEFORM = 3
 
 @dataclass()
 class State:
   polygons: list[Poly] = field(default_factory=list)
-  cursor: tuple[int, int] = (0, 0)
-  drawing_start: tuple[int, int] = (0, 0)
-  drawing: bool = False
+  cursor: np.ndarray = field(default_factory=lambda: np.array([0, 0], dtype=np.int32))
+  drawing_start: np.ndarray = field(default_factory=lambda: np.array([0, 0], dtype=np.int32))
+  mode: Mode = Mode.IDLE
+  selected_pt: np.ndarray = field(default_factory=lambda: np.array([], dtype=np.int32))
 
 class Window:
   def __init__(self, name: str):
     self.win = name
     self.state = State()
     cv.namedWindow(name, cv.WINDOW_NORMAL)
+    cv.resizeWindow(name, 900, 900)
     cv.setMouseCallback(name, self._on_mouse)
     
   def __del__(self):
@@ -24,7 +32,7 @@ class Window:
     
    
   def render(self) -> bool:
-    img = np.full((600, 800, 3), 10, np.uint8)
+    img = np.full((900, 900, 3), 10, np.uint8)
     
     if cv.waitKey(16) & 0xFF == ord('q'):
       return False
@@ -35,7 +43,10 @@ class Window:
     for poly in self.state.polygons:
       cv.polylines(img, [poly.pts], True, (0, 255, 255))
       for p in poly.pts:
-        cv.circle(img, p, 5, (0, 255, 0), cv.FILLED)
+        if p is self.state.selected_pt:
+          cv.circle(img, p, 5, (255, 0, 0), cv.FILLED)
+        else:
+          cv.circle(img, p, 5, (0, 255, 0), cv.FILLED)
       
     cv.imshow(self.win, img)
     
@@ -49,15 +60,24 @@ class Window:
       
   
   def _on_mouse(self, event, x, y, flags, _: Any):
-    self.state.cursor = (x, y)
+    self.state.cursor = np.array([x, y])
     x0, y0 = self.state.drawing_start
     
-    if self.state.drawing:
+    if self.state.mode == Mode.DRAW:
       self.state.polygons[-1].pts = np.array([[x0, y0], [x0, y,], [x, y], [x, y0]])
+    elif self.state.mode == Mode.DEFORM:
+      self.state.selected_pt[:] = self.state.cursor
       
     if event == cv.EVENT_LBUTTONDOWN:
-      self.state.drawing = True
-      self.state.drawing_start = (x, y)
-      self.state.polygons.append(Poly(np.array([[x0, y0], [x0, y,], [x, y], [x, y0]])))
-    elif event == cv.EVENT_LBUTTONUP and self.state.drawing:
-      self.state.drawing = False
+      for poly in self.state.polygons:
+        for p in poly.pts:
+          if np.linalg.norm(p - np.array([x, y])) <= 100:
+            self.state.mode = Mode.DEFORM
+            self.state.selected_pt = p
+            return
+
+      self.state.mode = Mode.DRAW
+      self.state.drawing_start = self.state.cursor.copy()
+      self.state.polygons.append(Poly(np.tile(self.state.cursor, (4, 1))))
+    elif event == cv.EVENT_LBUTTONUP:
+      self.state.mode = Mode.IDLE
