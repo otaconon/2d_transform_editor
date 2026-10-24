@@ -22,10 +22,14 @@ class Window:
   def __del__(self):
     cv.destroyWindow(self.win)
     
+   
   def render(self) -> bool:
     img = np.full((600, 800, 3), 10, np.uint8)
     
     if cv.waitKey(16) & 0xFF == ord('q'):
+      return False
+    
+    if not self._is_open():
       return False
     
     for poly in self.state.polygons:
@@ -35,10 +39,13 @@ class Window:
       
     cv.imshow(self.win, img)
     
-    if cv.getWindowProperty(self.win, cv.WND_PROP_VISIBLE) < 1:
-      return False
-    
     return True
+  
+  def _is_open(self) -> bool:
+    try:
+      return cv.getWindowProperty(self.win, cv.WND_PROP_VISIBLE) >= 1
+    except cv.error:
+      return False
       
   
   def _on_mouse(self, event, x, y, flags, _: Any):
