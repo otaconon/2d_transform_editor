@@ -16,7 +16,6 @@ class Mode(Enum):
 
 @dataclass()
 class State:
-  polygons: list[Poly] = field(default_factory=list)
   cursor: np.ndarray = field(default_factory=lambda: np.array([0, 0], dtype=np.int32))
   action_start: np.ndarray = field(default_factory=lambda: np.array([0, 0], dtype=np.int32))
   mode: Mode = Mode.DRAW
@@ -29,6 +28,7 @@ class Window:
     self.win = name
     self.state = State()
     self.should_close = False
+    self.polygons: list[Poly] = []
     cv.namedWindow(name, cv.WINDOW_NORMAL)
     cv.resizeWindow(name, 900, 900)
     cv.setMouseCallback(name, self._on_mouse)
@@ -46,12 +46,12 @@ class Window:
     img = np.full((900, 900, 3), 10, np.uint8)
     
     self._wait_key()
-    if not self._is_open():
+    if not self._is_open() or self.should_close:
       return False
     
     self._draw_keybinds(img)
     
-    for poly in self.state.polygons:
+    for poly in self.polygons:
       cv.polylines(img, [poly.pts], True, (0, 255, 255))
       for p in poly.pts:
         if p is self.state.selected_pt:
@@ -89,12 +89,12 @@ class Window:
       self._select_point()
     else: 
       self.state.mode = Mode.DRAW
-      self.state.polygons.append(Poly(np.tile(self.state.cursor, (4, 1))))
+      self.polygons.append(Poly(np.tile(self.state.cursor, (4, 1))))
       
   def _on_mb_up(self):
     self.state.mb_down = False
     if self.state.mode == Mode.DRAW:
-      self.state.polygons[-1].set_origin()
+      self.polygons[-1].set_origin()
       
   def _on_mouse_move(self):
     x, y = self.state.cursor
@@ -102,7 +102,7 @@ class Window:
     dx, dy = self.state.cursor - self.state.action_start
     if not self.state.mb_down: return
     match self.state.mode:
-      case Mode.DRAW: self.state.polygons[-1].pts = np.array([[x0, y0], [x0, y], [x, y], [x, y0]])
+      case Mode.DRAW: self.polygons[-1].pts = np.array([[x0, y0], [x0, y], [x, y], [x, y0]])
       case Mode.DEFORM_TRANS:
         self.state.selected_poly.pts[:] = self.state.selected_poly.origin_pts + [dx, dy]
         #T = np.array([[1,0,dx],[0,1,dy],[0,0,1]])
@@ -123,7 +123,7 @@ class Window:
     elif key == ord('p'): self.state.mode = Mode.DEFORM_PERSPECTIVE
       
   def _select_point(self):
-    for poly in self.state.polygons:
+    for poly in self.polygons:
       for p in poly.pts:
         if np.linalg.norm(p - self.state.cursor) <= 25:
           self.state.selected_pt = p
