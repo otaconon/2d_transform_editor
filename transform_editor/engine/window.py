@@ -107,6 +107,9 @@ class Window:
     if key == ord('q'): self.should_close = True
     elif key == ord('d'): self.state.mode = Mode.DRAW
     elif key == ord('t'): self.state.mode = Mode.DEFORM_TRANS
+    elif key == ord('r'): self.state.mode = Mode.DEFORM_RIGID
+    elif key == ord('s'): self.state.mode = Mode.DEFORM_SIMILAR
+    elif key == ord('a'): self.state.mode = Mode.DEFORM_AFFINE
     elif key == ord('p'): self.state.mode = Mode.DEFORM_PERSPECTIVE
       
   def _select_point(self):
