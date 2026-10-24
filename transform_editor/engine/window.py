@@ -18,10 +18,11 @@ class Mode(Enum):
 class State:
   polygons: list[Poly] = field(default_factory=list)
   cursor: np.ndarray = field(default_factory=lambda: np.array([0, 0], dtype=np.int32))
-  drawing_start: np.ndarray = field(default_factory=lambda: np.array([0, 0], dtype=np.int32))
+  action_start: np.ndarray = field(default_factory=lambda: np.array([0, 0], dtype=np.int32))
   mode: Mode = Mode.DRAW
   mb_down: bool = False
   selected_pt: np.ndarray = field(default_factory=lambda: np.array([], dtype=np.int32))
+  selected_poly: Poly = Poly([])
 
 class Window:
   def __init__(self, name: str):
@@ -77,26 +78,35 @@ class Window:
       case cv.EVENT_LBUTTONDOWN:
         self._on_mb_down()
       case cv.EVENT_LBUTTONUP:
-        self.state.mb_down = False
+        self._on_mb_up()
       case cv.EVENT_MOUSEMOVE:
         self._on_mouse_move()
           
   def _on_mb_down(self):
     self.state.mb_down = True
+    self.state.action_start = self.state.cursor.copy()
     if self.state.mode != Mode.DRAW:
       self._select_point()
     else: 
       self.state.mode = Mode.DRAW
-      self.state.drawing_start = self.state.cursor.copy()
       self.state.polygons.append(Poly(np.tile(self.state.cursor, (4, 1))))
+      
+  def _on_mb_up(self):
+    self.state.mb_down = False
+    if self.state.mode == Mode.DRAW:
+      self.state.polygons[-1].set_origin()
       
   def _on_mouse_move(self):
     x, y = self.state.cursor
-    x0, y0 = self.state.drawing_start
+    x0, y0 = self.state.action_start
+    dx, dy = self.state.cursor - self.state.action_start
     if not self.state.mb_down: return
     match self.state.mode:
-      case Mode.DRAW: self.state.polygons[-1].pts = np.array([[x0, y0], [x0, y,], [x, y], [x, y0]])
-      case Mode.DEFORM_TRANS: pass
+      case Mode.DRAW: self.state.polygons[-1].pts = np.array([[x0, y0], [x0, y], [x, y], [x, y0]])
+      case Mode.DEFORM_TRANS:
+        self.state.selected_poly.pts[:] = self.state.selected_poly.origin_pts + [dx, dy]
+        #T = np.array([[1,0,dx],[0,1,dy],[0,0,1]])
+        #self.state.selected_poly.pts[:] = [(T @ np.r_[p, 1])[:2] for p in self.state.selected_poly.origin_pts]
       case Mode.DEFORM_RIGID: pass
       case Mode.DEFORM_SIMILAR: pass
       case Mode.DEFORM_AFFINE: pass
@@ -117,4 +127,5 @@ class Window:
       for p in poly.pts:
         if np.linalg.norm(p - self.state.cursor) <= 25:
           self.state.selected_pt = p
+          self.state.selected_poly = poly
           return

@@ -28,13 +28,16 @@ class Point:
 
 
 class Poly:
-  __slots__ = ("pts",)
+  __slots__ = ("pts", "origin_pts")
 
   def __init__(self, pts: Iterable[Point] | np.ndarray) -> None:
     if isinstance(pts, np.ndarray):
       self.pts = np.ascontiguousarray(pts, dtype=np.int32)
     else:
       self.pts = np.array([p.arr for p in pts], dtype=np.int32)
+      
+  def set_origin(self):
+    self.origin_pts = self.pts.copy()
 
   def __getitem__(self, idx: int) -> Point:
     return Point(self.pts[idx])
