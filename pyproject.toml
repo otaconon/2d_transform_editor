@@ -27,3 +27,6 @@ explicit_package_bases = true
 warn_unreachable = true
 warn_redundant_casts = true
 strict_equality = true
+
+[tool.uv]
+package = false
