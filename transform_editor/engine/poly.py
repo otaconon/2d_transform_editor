@@ -41,7 +41,12 @@ class Point:
 
   def __array__(self, dtype=np.int32, copy=None) -> np.ndarray:
     return self.arr.astype(dtype, copy=False)
-
+  
+def rotation(u, v) -> np.ndarray:
+  if (denom := np.hypot(*u) * np.hypot(*v)) <= 1e-8: return np.array([1,0],[0,1])
+  c, s = (u @ v) / denom, (u[0] * v[1] - u[1] * v[0]) / denom
+  return np.array([[c, -s], [s, c]])
+  
 class Poly:
   __slots__ = ("pts", "origin_pts", "state_record")
 
@@ -57,13 +62,18 @@ class Poly:
     self.state_record.append(state) 
     self.origin_pts = self.pts.copy()
     
-  def translate(self, t):
+  def deform_trans(self, t):
     self.pts[:] = self.origin_pts + t
-    
-  def rotate(self, start, end):
+   
+  def deform_rigid(self, start, end):
     center = self.origin_pts.mean(axis=0)
     r, v = start - center, end - center
-    if (denom := np.hypot(*r) * np.hypot(*v)) <= 1e-8: return
-    c, s = (r @ v) / denom, (r[0] * v[1] - r[1] * v[0]) / denom
-    R = np.array([[c, -s], [s, c]])
+    R = rotation(r, v)
     self.pts[:] = np.rint((self.origin_pts - center) @ R.T + center)
+    
+  def deform_similar(self, start, end):
+    center = self.origin_pts.mean(axis=0)
+    r, v = start - center, end - center
+    R = rotation(r, v)
+    scale = np.hypot(*v)/np.hypot(*r)
+    self.pts[:] = np.rint((self.origin_pts - center) @ (R.T*scale) + center)

@@ -73,17 +73,9 @@ class Window:
     if mode == Mode.DRAW:
       x0, y0 = self.state.action_start
       poly.pts = np.array([[x0, y0], [x0, y], [x, y], [x, y0]])
-    if mode == Mode.DEFORM_TRANS: poly.translate(dr)
-    if mode == Mode.DEFORM_RIGID: poly.rotate(self.state.action_start, cursor_pos)
-      
-    if mode == Mode.DEFORM_SIMILAR:
-      center = poly.origin_pts.mean(axis=0)
-      r, v = self.state.action_start - center, cursor_pos - center
-      if (denom := np.hypot(*r) * np.hypot(*v)) <= 1e-8: return
-      cos, sin = (r @ v) / denom, (r[0] * v[1] - r[1] * v[0]) / denom
-      scale = np.hypot(*v)/np.hypot(*r)
-      R = np.array([[cos, -sin], [sin, cos]])*scale
-      poly.pts[:] = np.rint((poly.origin_pts - center) @ R.T + center)
+    if mode == Mode.DEFORM_TRANS: poly.deform_trans(dr)
+    if mode == Mode.DEFORM_RIGID: poly.deform_rigid(self.state.action_start, cursor_pos)
+    if mode == Mode.DEFORM_SIMILAR: poly.deform_similar(self.state.action_start, cursor_pos)
     if mode == Mode.DEFORM_AFFINE:
       poly.pts[pt] = poly.origin_pts[pt] + [dx, dy]
       poly.pts[(pt+2)%len(poly.pts)] = poly.origin_pts[(pt+2)%len(poly.pts)] - [dx, dy]
