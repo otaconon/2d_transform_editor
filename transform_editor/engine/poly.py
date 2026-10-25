@@ -95,6 +95,7 @@ class Poly:
   def deform_affine(self, a: Action):
     self.deform_perspective(a)
     b = copy(a)
+    b.dr = -a.dr
     b.pt = (a.pt+2)%len(self.pts)
     self.deform_perspective(b)
   

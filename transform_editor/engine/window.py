@@ -2,7 +2,6 @@ import cv2 as cv
 import numpy as np
 from typing import Any
 from contextlib import suppress
-from copy import copy
 
 from .poly import Poly, Mode, Action
   
@@ -42,11 +41,11 @@ class Window:
       cv.putText(img, text, (50, 50+25*i), cv.FONT_HERSHEY_PLAIN, 1, color)
     cv.putText(img, "Undo: u", (50, 50+25*len(MODES.values())), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
       
-    cv.polylines(img, [poly.pts for poly in self.polygons], True, (0, 255, 255))
+    cv.polylines(img, [poly.pts for poly in self.polygons], True, (0, 255, 255), thickness=3)
     for poly in self.polygons:
       for i, p in enumerate(poly.pts):
         color = (255, 0, 0) if (self.sel_poly != None and self.sel_poly is poly and self.action.pt == i) else (0, 255, 0)
-        cv.circle(img, p, 5, color, cv.FILLED)
+        cv.circle(img, p, 8, color, cv.FILLED)
     cv.imshow(self.name, img)
     
     key = cv.waitKey(16)
