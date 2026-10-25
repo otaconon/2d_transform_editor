@@ -42,18 +42,20 @@ class Point:
   def __array__(self, dtype=np.int32, copy=None) -> np.ndarray:
     return self.arr.astype(dtype, copy=False)
 
-
 class Poly:
-  __slots__ = ("pts", "origin_pts")
+  __slots__ = ("pts", "origin_pts", "state_record")
 
   def __init__(self, pts: Iterable[Point] | np.ndarray) -> None:
-    if isinstance(pts, np.ndarray):
-      self.pts = np.ascontiguousarray(pts, dtype=np.int32)
-    else:
-      self.pts = np.array([p.arr for p in pts], dtype=np.int32)
+    if isinstance(pts, np.ndarray): self.pts = np.ascontiguousarray(pts, dtype=np.int32)
+    else: self.pts = np.array([p.arr for p in pts], dtype=np.int32)
+    self.state_record = []
       
-  def set_origin(self):
-    self.origin_pts = self.pts.copy()
-
   def __getitem__(self, idx: int) -> Point:
     return Point(self.pts[idx])
+  
+  def record_state(self, state: State):
+    self.state_record.append(state) 
+    self.origin_pts = self.pts.copy()
+    
+  def translate(self, t):
+    self.pts[:] = self.origin_pts + t

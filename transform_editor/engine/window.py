@@ -61,7 +61,7 @@ class Window:
     if event == cv.EVENT_LBUTTONDOWN:
       self.mb_down, self.state.action_start = True, cursor_pos.copy()
       self.state.selected = next(((poly, i) for poly in self.polygons for (i, p) in enumerate(poly.pts) if np.sum((p - cursor_pos)**2) <= 625), None) if mode != Mode.DRAW else (self.polygons[-1], 2)
-    if event == cv.EVENT_LBUTTONUP and self.state.selected is not None: self.state.selected[0].set_origin()
+    if event == cv.EVENT_LBUTTONUP and self.state.selected is not None: self.state.selected[0].record_state(self.state)
     if event == cv.EVENT_LBUTTONUP: self.mb_down, self.state.selected = False, None
     
     if not self.mb_down or event != cv.EVENT_MOUSEMOVE: return
@@ -69,10 +69,11 @@ class Window:
     
     poly, pt = self.state.selected
     dx, dy = cursor_pos - self.state.action_start
+    dr = np.array([dx, dy])
     if mode == Mode.DRAW:
       x0, y0 = self.state.action_start
       poly.pts = np.array([[x0, y0], [x0, y], [x, y], [x, y0]])
-    if mode == Mode.DEFORM_TRANS: poly.pts[:] = poly.origin_pts + [dx, dy]
+    if mode == Mode.DEFORM_TRANS: poly.translate(dr)
     if mode == Mode.DEFORM_RIGID:
       center = poly.origin_pts.mean(axis=0)
       r, v = self.state.action_start - center, cursor_pos - center
