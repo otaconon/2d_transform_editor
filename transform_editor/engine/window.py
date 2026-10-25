@@ -51,8 +51,8 @@ class Window:
     
     self._draw_keybinds(img)
      
+    cv.polylines(img, [poly.pts for poly in self.polygons], True, (0, 255, 255))
     for poly in self.polygons:
-      cv.polylines(img, [poly.pts], True, (0, 255, 255))
       for i, p in enumerate(poly.pts):
         color = (255, 0, 0) if (self.state.selected != None and self.state.selected[0] is poly and self.state.selected[1] == i) else (0, 255, 0)
         cv.circle(img, p, 5, color, cv.FILLED)
