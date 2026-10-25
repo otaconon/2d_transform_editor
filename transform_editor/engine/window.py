@@ -135,7 +135,7 @@ class Window:
       
   def _select_point(self):
     for poly in self.polygons:
-      for i, p in enumerate(poly.pts):
-        if np.linalg.norm(p - self.state.cursor) <= 25:
-          self.state.selected = (poly, i)
-          return
+      d2 = np.sum((poly.pts - self.state.cursor) ** 2, axis=1)
+      if (idx := int(np.argmin(d2))) >= 0 and d2[idx] <= 625:
+        self.state.selected = (poly, idx)
+        return
