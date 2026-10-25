@@ -51,19 +51,26 @@ def rotation(u, v) -> np.ndarray:
   return np.array([[c, -s], [s, c]])
   
 class Poly:
-  __slots__ = ("pts", "origin_pts", "state_record")
+  __slots__ = ("pts", "origin_pts")
 
   def __init__(self, pts: Iterable[Point] | np.ndarray) -> None:
     if isinstance(pts, np.ndarray): self.pts = np.ascontiguousarray(pts, dtype=np.int32)
     else: self.pts = np.array([p.arr for p in pts], dtype=np.int32)
-    self.state_record = []
+    self.finish_action()
       
   def __getitem__(self, idx: int) -> Point:
     return Point(self.pts[idx])
   
-  def record_state(self, a: Action):
-    self.state_record.append(a) 
+  def finish_action(self):
     self.origin_pts = self.pts.copy()
+    
+  def deform(self, a: Action):
+    if a.mode == Mode.DRAW: self.deform_draw(a)
+    if a.mode == Mode.DEFORM_TRANS: self.deform_trans(a)
+    if a.mode == Mode.DEFORM_RIGID: self.deform_rigid(a)
+    if a.mode == Mode.DEFORM_SIMILAR: self.deform_similar(a)
+    if a.mode == Mode.DEFORM_AFFINE: self.deform_affine(a)
+    if a.mode == Mode.DEFORM_PERSPECTIVE: self.deform_perspective(a)
     
   def deform_draw(self, a: Action):
     (x0, y0), (x, y) = a.start, a.end
