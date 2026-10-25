@@ -62,8 +62,8 @@ class Poly:
     self.state_record.append(state) 
     self.origin_pts = self.pts.copy()
     
-  def deform_trans(self, t):
-    self.pts[:] = self.origin_pts + t
+  def deform_trans(self, start, end):
+    self.pts[:] = self.origin_pts + (end-start)
    
   def deform_rigid(self, start, end):
     center = self.origin_pts.mean(axis=0)
@@ -77,3 +77,10 @@ class Poly:
     R = rotation(r, v)
     scale = np.hypot(*v)/np.hypot(*r)
     self.pts[:] = np.rint((self.origin_pts - center) @ (R.T*scale) + center)
+    
+  def deform_affine(self, start, end, pt):
+    self.deform_perspective(start, end, pt)
+    self.deform_perspective(-start, -end, (pt+2)%len(self.pts))
+  
+  def deform_perspective(self, start, end, pt):
+    self.pts[pt] = self.origin_pts[pt] + (end-start)

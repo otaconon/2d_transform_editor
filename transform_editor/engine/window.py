@@ -69,14 +69,11 @@ class Window:
     
     poly, pt = self.state.selected
     dx, dy = cursor_pos - self.state.action_start
-    dr = np.array([dx, dy])
     if mode == Mode.DRAW:
       x0, y0 = self.state.action_start
       poly.pts = np.array([[x0, y0], [x0, y], [x, y], [x, y0]])
-    if mode == Mode.DEFORM_TRANS: poly.deform_trans(dr)
+    if mode == Mode.DEFORM_TRANS: poly.deform_trans(self.state.action_start, cursor_pos)
     if mode == Mode.DEFORM_RIGID: poly.deform_rigid(self.state.action_start, cursor_pos)
     if mode == Mode.DEFORM_SIMILAR: poly.deform_similar(self.state.action_start, cursor_pos)
-    if mode == Mode.DEFORM_AFFINE:
-      poly.pts[pt] = poly.origin_pts[pt] + [dx, dy]
-      poly.pts[(pt+2)%len(poly.pts)] = poly.origin_pts[(pt+2)%len(poly.pts)] - [dx, dy]
-    if mode == Mode.DEFORM_PERSPECTIVE: poly.pts[pt] = cursor_pos
+    if mode == Mode.DEFORM_AFFINE: poly.deform_affine(self.state.action_start, cursor_pos, pt)
+    if mode == Mode.DEFORM_PERSPECTIVE: poly.deform_perspective(self.state.action_start, cursor_pos, pt)
