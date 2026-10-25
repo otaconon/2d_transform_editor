@@ -34,20 +34,23 @@ class State:
 
 class Window:
   def __init__(self, name: str):
-    self.win = name
+    self.name = name
     self.state = State()
     self.should_close = False
     self.polygons: list[Poly] = []
-    cv.namedWindow(name, cv.WINDOW_NORMAL)
-    cv.resizeWindow(name, 900, 900)
-    cv.setMouseCallback(name, self._on_mouse)
     
-  def __del__(self):
-    cv.destroyWindow(self.win)
+  def __enter__(self):
+    cv.namedWindow(self.name, cv.WINDOW_NORMAL)
+    cv.resizeWindow(self.name, 900, 900)
+    cv.setMouseCallback(self.name, self._on_mouse)
+    return self
+    
+  def __exit__(self, exc_type, exc_val, exc_tb):
+    cv.destroyWindow(self.name)
     
   def _is_open(self) -> bool:
     try:
-      return cv.getWindowProperty(self.win, cv.WND_PROP_VISIBLE) >= 1
+      return cv.getWindowProperty(self.name, cv.WND_PROP_VISIBLE) >= 1
     except cv.error:
       return False
    
@@ -70,7 +73,7 @@ class Window:
         color = (255, 0, 0) if (self.state.selected != None and self.state.selected[0] is poly and self.state.selected[1] == i) else (0, 255, 0)
         cv.circle(img, p, 5, color, cv.FILLED)
         
-    cv.imshow(self.win, img)
+    cv.imshow(self.name, img)
     
     return True
   
