@@ -98,6 +98,13 @@ class Window:
       c, s = (r @ v) / denom, (r[0] * v[1] - r[1] * v[0]) / denom
       R = np.array([[c, -s], [s, c]])
       poly.pts[:] = np.rint((poly.origin_pts - center) @ R.T + center)
-    if mode == Mode.DEFORM_SIMILAR: pass
+    if mode == Mode.DEFORM_SIMILAR:
+      center = poly.origin_pts.mean(axis=0)
+      r, v = self.state.action_start - center, self.state.cursor - center
+      if (denom := np.hypot(*r) * np.hypot(*v)) <= 1e-8: return
+      cos, sin = (r @ v) / denom, (r[0] * v[1] - r[1] * v[0]) / denom
+      scale = np.hypot(*v)/np.hypot(*r)
+      R = np.array([[cos, -sin], [sin, cos]])*scale
+      poly.pts[:] = np.rint((poly.origin_pts - center) @ R.T + center)
     if mode == Mode.DEFORM_AFFINE: pass
     if mode == Mode.DEFORM_PERSPECTIVE: poly.pts[pt] = self.state.cursor
