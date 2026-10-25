@@ -16,8 +16,9 @@ MODES = {
 }
 
 class Window:
-  def __init__(self, name: str):
+  def __init__(self, name: str, width: int, height: int):
     self.name = name
+    self.window_size = (width, height)
     self.action = Action(Mode.DRAW)
     self.action_record: list[tuple[Poly, Mode, np.ndarray]] = []
     self.polygons: list[Poly] = []
@@ -26,7 +27,7 @@ class Window:
     
   def __enter__(self):
     cv.namedWindow(self.name, cv.WINDOW_NORMAL)
-    cv.resizeWindow(self.name, 900, 900)
+    cv.resizeWindow(self.name, *self.window_size)
     cv.setMouseCallback(self.name, self._on_mouse)
     return self
     
@@ -35,7 +36,7 @@ class Window:
       cv.destroyWindow(self.name)
     
   def render(self) -> bool:
-    img = np.full((900, 900, 3), 10, np.uint8)
+    img = np.full((*self.window_size, 3), 10, np.uint8)
     for i, (mode, text) in enumerate(MODES.values()):
       color = (0, 255, 0) if mode == self.action.mode else (255, 255, 255)
       cv.putText(img, text, (50, 50+25*i), cv.FONT_HERSHEY_PLAIN, 1, color)
