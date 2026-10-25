@@ -3,6 +3,7 @@ import numpy as np
 from dataclasses import dataclass, field
 from typing import Any
 from enum import Enum, auto
+from contextlib import suppress
 
 from .poly import Poly
 
@@ -44,29 +45,27 @@ class Window:
     return self
     
   def __exit__(self, exc_type, exc_val, exc_tb):
-    cv.destroyWindow(self.name)
+    with suppress(cv.error):
+      cv.destroyWindow(self.name)
     
   def render(self) -> bool:
-    key = cv.waitKey(16)
-    try:
-      if cv.getWindowProperty(self.name, cv.WND_PROP_VISIBLE) < 1 or key == ord('q'): return False
-    except cv.error:
-      return False
-    
-    if key in MODES: self.state.mode = MODES[key][0]
-    
     img = np.full((900, 900, 3), 10, np.uint8)
-    
-    for i, (_, text) in enumerate(MODES.values()):
-      cv.putText(img, text, (50, 50+25*i), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
-     
+    for i, (mode, text) in enumerate(MODES.values()):
+      color = (0, 255, 0) if mode == self.state.mode else (255, 255, 255)
+      cv.putText(img, text, (50, 50+25*i), cv.FONT_HERSHEY_PLAIN, 1, color)
     cv.polylines(img, [poly.pts for poly in self.polygons], True, (0, 255, 255))
     for poly in self.polygons:
       for i, p in enumerate(poly.pts):
         color = (255, 0, 0) if (self.state.selected != None and self.state.selected[0] is poly and self.state.selected[1] == i) else (0, 255, 0)
         cv.circle(img, p, 5, color, cv.FILLED)
-        
     cv.imshow(self.name, img)
+    
+    key = cv.waitKey(16)
+    try:
+      if cv.getWindowProperty(self.name, cv.WND_PROP_VISIBLE) < 1 or key == ord('q'): return False
+    except cv.error:
+      return False
+    if key in MODES: self.state.mode = MODES[key][0]
     
     return True
   
