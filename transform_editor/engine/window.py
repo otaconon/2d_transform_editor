@@ -1,11 +1,10 @@
 import cv2 as cv
 import numpy as np
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import Any
 from enum import Enum, auto
 
 from .poly import Poly
-from .helper import unwrap
 
 class Mode(Enum):
   DRAW = auto()
@@ -36,7 +35,6 @@ class Window:
   def __init__(self, name: str):
     self.name = name
     self.state = State()
-    self.should_close = False
     self.polygons: list[Poly] = []
     
   def __enter__(self):
@@ -48,21 +46,16 @@ class Window:
   def __exit__(self, exc_type, exc_val, exc_tb):
     cv.destroyWindow(self.name)
     
-  def _is_open(self) -> bool:
+  def render(self) -> bool:
+    key = cv.waitKey(16)
     try:
-      return cv.getWindowProperty(self.name, cv.WND_PROP_VISIBLE) >= 1
+      if cv.getWindowProperty(self.name, cv.WND_PROP_VISIBLE) < 1 or key == ord('q'): return False
     except cv.error:
       return False
-   
-  def render(self) -> bool:
+    
+    if key in MODES: self.state.mode = MODES[key][0]
+    
     img = np.full((900, 900, 3), 10, np.uint8)
-    
-    key = cv.waitKey(16)
-    if key == ord('q'): self.should_close = True
-    elif key in MODES: self.state.mode = MODES[key][0]
-    
-    if not self._is_open() or self.should_close:
-      return False
     
     for i, (_, text) in enumerate(MODES.values()):
       cv.putText(img, text, (50, 50+25*i), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
