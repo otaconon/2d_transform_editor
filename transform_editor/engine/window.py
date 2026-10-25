@@ -5,6 +5,7 @@ from typing import Any, cast
 from enum import Enum
 
 from .poly import Poly
+from .helper import unwrap
 
 class Mode(Enum):
   DRAW = 1
@@ -20,8 +21,7 @@ class State:
   action_start: np.ndarray = field(default_factory=lambda: np.array([0, 0], dtype=np.int32))
   mode: Mode = Mode.DRAW
   mb_down: bool = False
-  selected_pt: np.ndarray = field(default_factory=lambda: np.array([], dtype=np.int32))
-  selected_poly: Poly = Poly([])
+  selected: tuple[Poly, int] | None = None
 
 class Window:
   def __init__(self, name: str):
@@ -44,21 +44,19 @@ class Window:
    
   def render(self) -> bool:
     img = np.full((900, 900, 3), 10, np.uint8)
-    
     self._wait_key()
+    
     if not self._is_open() or self.should_close:
       return False
     
     self._draw_keybinds(img)
-    
+     
     for poly in self.polygons:
       cv.polylines(img, [poly.pts], True, (0, 255, 255))
-      for p in poly.pts:
-        if p is self.state.selected_pt:
-          cv.circle(img, p, 5, (255, 0, 0), cv.FILLED)
-        else:
-          cv.circle(img, p, 5, (0, 255, 0), cv.FILLED)
-      
+      for i, p in enumerate(poly.pts):
+        color = (255, 0, 0) if (self.state.selected != None and self.state.selected[1] == i) else (0, 255, 0)
+        cv.circle(img, p, 5, color, cv.FILLED)
+        
     cv.imshow(self.win, img)
     
     return True
@@ -94,33 +92,34 @@ class Window:
   def _on_mb_up(self):
     self.state.mb_down = False
     self.polygons[-1].set_origin()
-    #if self.state.mode == Mode.DRAW:
-    #  self.polygons[-1].set_origin()
+    self.state.selected = None
       
   def _on_mouse_move(self):
+    if not self.state.mb_down: return
     x, y = self.state.cursor
     x0, y0 = self.state.action_start
     dx, dy = self.state.cursor - self.state.action_start
-    if not self.state.mb_down: return
-    match self.state.mode:
-      case Mode.DRAW: self.polygons[-1].pts = np.array([[x0, y0], [x0, y], [x, y], [x, y0]])
-      case Mode.DEFORM_TRANS:
-        self.state.selected_poly.pts[:] = self.state.selected_poly.origin_pts + [dx, dy]
+    match self.state.mode, self.state.selected:
+      case Mode.DRAW, _:
+        self.polygons[-1].pts = np.array([[x0, y0], [x0, y], [x, y], [x, y0]])
+      case Mode.DEFORM_TRANS, (poly, _):
+        poly.pts[:] = poly.origin_pts + [dx, dy]
         #T = np.array([[1,0,dx],[0,1,dy],[0,0,1]])
         #self.state.selected_poly.pts[:] = [(T @ np.r_[p, 1])[:2] for p in self.state.selected_poly.origin_pts]
-      case Mode.DEFORM_RIGID:
-        center = np.mean(self.state.selected_poly.origin_pts, axis=0)
+      case Mode.DEFORM_RIGID, (poly, pt):
+        center = np.mean(poly.origin_pts, axis=0)
         r = self.state.action_start - center
         v = self.state.cursor - center
         if np.linalg.norm(r) > 1e-8 and np.linalg.norm(v) > 1e-8:
           rot_angle = np.arctan2(r[0] * v[1] - r[1] * v[0], np.dot(r, v))
           s, c = np.sin(rot_angle), np.cos(rot_angle)
           R = np.array([[c, -s],[s,  c]])
-          self.state.selected_poly.pts[:] = (self.state.selected_poly.origin_pts - center) @ R.T + center
+          poly.pts[:] = (poly.origin_pts - center) @ R.T + center
         
       case Mode.DEFORM_SIMILAR: pass
       case Mode.DEFORM_AFFINE: pass
-      case Mode.DEFORM_PERSPECTIVE: self.state.selected_pt[:] = self.state.cursor
+      case Mode.DEFORM_PERSPECTIVE, (poly, pt):
+        poly.pts[pt] = self.state.cursor
   
   def _wait_key(self):
     key = cv.waitKey(16)
@@ -134,8 +133,7 @@ class Window:
       
   def _select_point(self):
     for poly in self.polygons:
-      for p in poly.pts:
+      for i, p in enumerate(poly.pts):
         if np.linalg.norm(p - self.state.cursor) <= 25:
-          self.state.selected_pt = p
-          self.state.selected_poly = poly
+          self.state.selected = (poly, i)
           return
