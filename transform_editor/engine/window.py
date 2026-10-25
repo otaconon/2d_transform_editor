@@ -54,7 +54,7 @@ class Window:
     for poly in self.polygons:
       cv.polylines(img, [poly.pts], True, (0, 255, 255))
       for i, p in enumerate(poly.pts):
-        color = (255, 0, 0) if (self.state.selected != None and self.state.selected[1] == i) else (0, 255, 0)
+        color = (255, 0, 0) if (self.state.selected != None and self.state.selected[0] is poly and self.state.selected[1] == i) else (0, 255, 0)
         cv.circle(img, p, 5, color, cv.FILLED)
         
     cv.imshow(self.win, img)
@@ -83,15 +83,17 @@ class Window:
   def _on_mb_down(self):
     self.state.mb_down = True
     self.state.action_start = self.state.cursor.copy()
+    
     if self.state.mode != Mode.DRAW:
       self._select_point()
     else: 
       self.state.mode = Mode.DRAW
       self.polygons.append(Poly(np.tile(self.state.cursor, (4, 1))))
+      self.state.selected = (self.polygons[-1], 2)
       
   def _on_mb_up(self):
     self.state.mb_down = False
-    self.polygons[-1].set_origin()
+    if (sel := self.state.selected): sel[0].set_origin()
     self.state.selected = None
       
   def _on_mouse_move(self):
@@ -100,8 +102,8 @@ class Window:
     x0, y0 = self.state.action_start
     dx, dy = self.state.cursor - self.state.action_start
     match self.state.mode, self.state.selected:
-      case Mode.DRAW, _:
-        self.polygons[-1].pts = np.array([[x0, y0], [x0, y], [x, y], [x, y0]])
+      case Mode.DRAW, (poly, _):
+        poly.pts = np.array([[x0, y0], [x0, y], [x, y], [x, y0]])
       case Mode.DEFORM_TRANS, (poly, _):
         poly.pts[:] = poly.origin_pts + [dx, dy]
         #T = np.array([[1,0,dx],[0,1,dy],[0,0,1]])
