@@ -93,8 +93,9 @@ class Window:
       
   def _on_mb_up(self):
     self.state.mb_down = False
-    if self.state.mode == Mode.DRAW:
-      self.polygons[-1].set_origin()
+    self.polygons[-1].set_origin()
+    #if self.state.mode == Mode.DRAW:
+    #  self.polygons[-1].set_origin()
       
   def _on_mouse_move(self):
     x, y = self.state.cursor
@@ -107,7 +108,16 @@ class Window:
         self.state.selected_poly.pts[:] = self.state.selected_poly.origin_pts + [dx, dy]
         #T = np.array([[1,0,dx],[0,1,dy],[0,0,1]])
         #self.state.selected_poly.pts[:] = [(T @ np.r_[p, 1])[:2] for p in self.state.selected_poly.origin_pts]
-      case Mode.DEFORM_RIGID: pass
+      case Mode.DEFORM_RIGID:
+        center = np.mean(self.state.selected_poly.origin_pts, axis=0)
+        r = self.state.action_start - center
+        v = self.state.cursor - center
+        if np.linalg.norm(r) > 1e-8 and np.linalg.norm(v) > 1e-8:
+          rot_angle = np.arctan2(r[0] * v[1] - r[1] * v[0], np.dot(r, v))
+          s, c = np.sin(rot_angle), np.cos(rot_angle)
+          R = np.array([[c, -s],[s,  c]])
+          self.state.selected_poly.pts[:] = (self.state.selected_poly.origin_pts - center) @ R.T + center
+        
       case Mode.DEFORM_SIMILAR: pass
       case Mode.DEFORM_AFFINE: pass
       case Mode.DEFORM_PERSPECTIVE: self.state.selected_pt[:] = self.state.cursor
