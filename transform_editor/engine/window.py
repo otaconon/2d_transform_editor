@@ -1,19 +1,9 @@
 import cv2 as cv
 import numpy as np
-from dataclasses import dataclass, field
 from typing import Any
-from enum import Enum, auto
 from contextlib import suppress
 
-from .poly import Poly
-
-class Mode(Enum):
-  DRAW = auto()
-  DEFORM_TRANS = auto()
-  DEFORM_RIGID = auto()
-  DEFORM_SIMILAR = auto()
-  DEFORM_AFFINE = auto()
-  DEFORM_PERSPECTIVE = auto()
+from .poly import Poly, Mode, State
   
 MODES = {
   ord('d'): (Mode.DRAW, "Draw: d"),
@@ -24,18 +14,12 @@ MODES = {
   ord('p'): (Mode.DEFORM_PERSPECTIVE, "Perspective: p"),
 }
 
-@dataclass()
-class State:
-  action_start: np.ndarray = field(default_factory=lambda: np.array([0, 0], dtype=np.int32))
-  mode: Mode = Mode.DRAW
-  mb_down: bool = False
-  selected: tuple[Poly, int] | None = None
-
 class Window:
   def __init__(self, name: str):
     self.name = name
     self.state = State()
     self.polygons: list[Poly] = []
+    self.mb_down: bool = False
     
   def __enter__(self):
     cv.namedWindow(self.name, cv.WINDOW_NORMAL)
@@ -75,17 +59,19 @@ class Window:
     if (event, mode) == (cv.EVENT_LBUTTONDOWN, Mode.DRAW):
       self.polygons.append(Poly(np.tile((x, y), (4, 1))))
     if event == cv.EVENT_LBUTTONDOWN:
-      self.state.mb_down, self.state.action_start = True, cursor_pos.copy()
+      self.mb_down, self.state.action_start = True, cursor_pos.copy()
       self.state.selected = next(((poly, i) for poly in self.polygons for (i, p) in enumerate(poly.pts) if np.sum((p - cursor_pos)**2) <= 625), None) if mode != Mode.DRAW else (self.polygons[-1], 2)
     if event == cv.EVENT_LBUTTONUP and self.state.selected is not None: self.state.selected[0].set_origin()
-    if event == cv.EVENT_LBUTTONUP: self.state.mb_down, self.state.selected = False, None
+    if event == cv.EVENT_LBUTTONUP: self.mb_down, self.state.selected = False, None
     
-    if not self.state.mb_down or event != cv.EVENT_MOUSEMOVE: return
-    x0, y0 = self.state.action_start
-    dx, dy = cursor_pos - self.state.action_start
+    if not self.mb_down or event != cv.EVENT_MOUSEMOVE: return
     if self.state.selected == None: return
+    
     poly, pt = self.state.selected
-    if mode == Mode.DRAW: poly.pts = np.array([[x0, y0], [x0, y], [x, y], [x, y0]])
+    dx, dy = cursor_pos - self.state.action_start
+    if mode == Mode.DRAW:
+      x0, y0 = self.state.action_start
+      poly.pts = np.array([[x0, y0], [x0, y], [x, y], [x, y0]])
     if mode == Mode.DEFORM_TRANS: poly.pts[:] = poly.origin_pts + [dx, dy]
     if mode == Mode.DEFORM_RIGID:
       center = poly.origin_pts.mean(axis=0)

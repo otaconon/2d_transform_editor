@@ -1,5 +1,21 @@
 from collections.abc import Iterable
+from dataclasses import dataclass, field
 import numpy as np
+from enum import Enum, auto
+
+class Mode(Enum):
+  DRAW = auto()
+  DEFORM_TRANS = auto()
+  DEFORM_RIGID = auto()
+  DEFORM_SIMILAR = auto()
+  DEFORM_AFFINE = auto()
+  DEFORM_PERSPECTIVE = auto()
+
+@dataclass
+class State:
+  mode: Mode = Mode.DRAW
+  selected: tuple[Poly, int] | None = None
+  action_start: np.ndarray = field(default_factory=lambda: np.array([0, 0], dtype=np.int32))
 
 class Point:
   __slots__ = ("arr",)
