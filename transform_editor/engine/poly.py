@@ -59,3 +59,11 @@ class Poly:
     
   def translate(self, t):
     self.pts[:] = self.origin_pts + t
+    
+  def rotate(self, start, end):
+    center = self.origin_pts.mean(axis=0)
+    r, v = start - center, end - center
+    if (denom := np.hypot(*r) * np.hypot(*v)) <= 1e-8: return
+    c, s = (r @ v) / denom, (r[0] * v[1] - r[1] * v[0]) / denom
+    R = np.array([[c, -s], [s, c]])
+    self.pts[:] = np.rint((self.origin_pts - center) @ R.T + center)
