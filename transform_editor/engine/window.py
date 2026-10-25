@@ -109,14 +109,12 @@ class Window:
         #T = np.array([[1,0,dx],[0,1,dy],[0,0,1]])
         #self.state.selected_poly.pts[:] = [(T @ np.r_[p, 1])[:2] for p in self.state.selected_poly.origin_pts]
       case Mode.DEFORM_RIGID, (poly, pt):
-        center = np.mean(poly.origin_pts, axis=0)
-        r = self.state.action_start - center
-        v = self.state.cursor - center
-        if np.linalg.norm(r) > 1e-8 and np.linalg.norm(v) > 1e-8:
-          rot_angle = np.arctan2(r[0] * v[1] - r[1] * v[0], np.dot(r, v))
-          s, c = np.sin(rot_angle), np.cos(rot_angle)
-          R = np.array([[c, -s],[s,  c]])
-          poly.pts[:] = (poly.origin_pts - center) @ R.T + center
+        center = poly.origin_pts.mean(axis=0)
+        r, v = self.state.action_start - center, self.state.cursor - center
+        if (denom := np.hypot(*r) * np.hypot(*v)) > 1e-8:
+          c, s = (r @ v) / denom, (r[0] * v[1] - r[1] * v[0]) / denom
+          R = np.array([[c, -s], [s, c]])
+          poly.pts[:] = np.rint((poly.origin_pts - center) @ R.T + center)
         
       case Mode.DEFORM_SIMILAR: pass
       case Mode.DEFORM_AFFINE: pass
