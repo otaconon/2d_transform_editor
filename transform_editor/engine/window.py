@@ -89,8 +89,6 @@ class Window:
     poly, pt = self.state.selected
     if mode == Mode.DRAW: poly.pts = np.array([[x0, y0], [x0, y], [x, y], [x, y0]])
     if mode == Mode.DEFORM_TRANS: poly.pts[:] = poly.origin_pts + [dx, dy]
-      #T = np.array([[1,0,dx],[0,1,dy],[0,0,1]])
-      #self.state.selected_poly.pts[:] = [(T @ np.r_[p, 1])[:2] for p in self.state.selected_poly.origin_pts]
     if mode == Mode.DEFORM_RIGID:
       center = poly.origin_pts.mean(axis=0)
       r, v = self.state.action_start - center, self.state.cursor - center
@@ -106,5 +104,7 @@ class Window:
       scale = np.hypot(*v)/np.hypot(*r)
       R = np.array([[cos, -sin], [sin, cos]])*scale
       poly.pts[:] = np.rint((poly.origin_pts - center) @ R.T + center)
-    if mode == Mode.DEFORM_AFFINE: pass
+    if mode == Mode.DEFORM_AFFINE:
+      poly.pts[pt] = poly.origin_pts[pt] + [dx, dy]
+      poly.pts[(pt+2)%len(poly.pts)] = poly.origin_pts[(pt+2)%len(poly.pts)] - [dx, dy]
     if mode == Mode.DEFORM_PERSPECTIVE: poly.pts[pt] = self.state.cursor
