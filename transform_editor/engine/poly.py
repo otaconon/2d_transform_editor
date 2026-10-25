@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 import numpy as np
 from enum import Enum, auto
+from copy import copy
 
 class Mode(Enum):
   DRAW = auto()
@@ -12,10 +13,12 @@ class Mode(Enum):
   DEFORM_PERSPECTIVE = auto()
 
 @dataclass
-class State:
+class Action:
   mode: Mode = Mode.DRAW
-  selected: tuple[Poly, int] | None = None
-  action_start: np.ndarray = field(default_factory=lambda: np.array([0, 0], dtype=np.int32))
+  start: np.ndarray = field(default_factory=lambda: np.array([0, 0], dtype=np.int32))
+  end: np.ndarray = field(default_factory=lambda: np.array([0, 0], dtype=np.int32))
+  dr: np.ndarray = field(default_factory=lambda: np.array([0, 0], dtype=np.int32))
+  pt: int = 0
 
 class Point:
   __slots__ = ("arr",)
@@ -58,29 +61,35 @@ class Poly:
   def __getitem__(self, idx: int) -> Point:
     return Point(self.pts[idx])
   
-  def record_state(self, state: State):
-    self.state_record.append(state) 
+  def record_state(self, a: Action):
+    self.state_record.append(a) 
     self.origin_pts = self.pts.copy()
     
-  def deform_trans(self, start, end):
-    self.pts[:] = self.origin_pts + (end-start)
+  def deform_draw(self, a: Action):
+    (x0, y0), (x, y) = a.start, a.end
+    self.pts = np.array([[x0, y0], [x0, y], [x, y], [x, y0]])
+    
+  def deform_trans(self, a: Action):
+    self.pts[:] = self.origin_pts + a.dr
    
-  def deform_rigid(self, start, end):
+  def deform_rigid(self, a: Action):
     center = self.origin_pts.mean(axis=0)
-    r, v = start - center, end - center
+    r, v = a.start - center, a.end - center
     R = rotation(r, v)
     self.pts[:] = np.rint((self.origin_pts - center) @ R.T + center)
     
-  def deform_similar(self, start, end):
+  def deform_similar(self, a: Action):
     center = self.origin_pts.mean(axis=0)
-    r, v = start - center, end - center
+    r, v = a.start - center, a.end - center
     R = rotation(r, v)
     scale = np.hypot(*v)/np.hypot(*r)
     self.pts[:] = np.rint((self.origin_pts - center) @ (R.T*scale) + center)
     
-  def deform_affine(self, start, end, pt):
-    self.deform_perspective(start, end, pt)
-    self.deform_perspective(-start, -end, (pt+2)%len(self.pts))
+  def deform_affine(self, a: Action):
+    self.deform_perspective(a)
+    b = copy(a)
+    b.pt = (a.pt+2)%len(self.pts)
+    self.deform_perspective(b)
   
-  def deform_perspective(self, start, end, pt):
-    self.pts[pt] = self.origin_pts[pt] + (end-start)
+  def deform_perspective(self, a: Action):
+    self.pts[a.pt] = self.origin_pts[a.pt] + a.dr
