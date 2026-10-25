@@ -2,18 +2,27 @@ import cv2 as cv
 import numpy as np
 from dataclasses import dataclass, field
 from typing import Any, cast
-from enum import Enum
+from enum import Enum, auto
 
 from .poly import Poly
 from .helper import unwrap
 
 class Mode(Enum):
-  DRAW = 1
-  DEFORM_TRANS = 2
-  DEFORM_RIGID = 3
-  DEFORM_SIMILAR = 5
-  DEFORM_AFFINE = 6
-  DEFORM_PERSPECTIVE = 7
+  DRAW = auto()
+  DEFORM_TRANS = auto()
+  DEFORM_RIGID = auto()
+  DEFORM_SIMILAR = auto()
+  DEFORM_AFFINE = auto()
+  DEFORM_PERSPECTIVE = auto()
+  
+MODES = {
+  ord('d'): (Mode.DRAW, "Draw: d"),
+  ord('t'): (Mode.DEFORM_TRANS, "Translation: t"),
+  ord('r'): (Mode.DEFORM_RIGID, "Rigid: r"),
+  ord('s'): (Mode.DEFORM_SIMILAR, "Similarity: s"),
+  ord('a'): (Mode.DEFORM_AFFINE, "Affine: a"),
+  ord('p'): (Mode.DEFORM_PERSPECTIVE, "Perspective: p"),
+}
 
 @dataclass()
 class State:
@@ -62,12 +71,8 @@ class Window:
     return True
   
   def _draw_keybinds(self, img):
-    cv.putText(img, "Draw mode: d", (50, 50), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
-    cv.putText(img, "Deform translation mode: t", (50, 75), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
-    cv.putText(img, "Deform rigid mode: r", (50, 100), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
-    cv.putText(img, "Deform similarity mode: s", (50, 125), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
-    cv.putText(img, "Deform affine mode: a", (50, 150), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
-    cv.putText(img, "Deform perspective mode: p", (50, 175), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
+    for i, (_, text) in enumerate(MODES.values()):
+      cv.putText(img, text, (50, 50+25*i), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
   
   def _on_mouse(self, event, x, y, flags, _: Any):
     self.state.cursor = np.array([x, y])
@@ -124,12 +129,7 @@ class Window:
   def _wait_key(self):
     key = cv.waitKey(16)
     if key == ord('q'): self.should_close = True
-    elif key == ord('d'): self.state.mode = Mode.DRAW
-    elif key == ord('t'): self.state.mode = Mode.DEFORM_TRANS
-    elif key == ord('r'): self.state.mode = Mode.DEFORM_RIGID
-    elif key == ord('s'): self.state.mode = Mode.DEFORM_SIMILAR
-    elif key == ord('a'): self.state.mode = Mode.DEFORM_AFFINE
-    elif key == ord('p'): self.state.mode = Mode.DEFORM_PERSPECTIVE
+    elif key in MODES: self.state.mode = MODES[key][0]
       
   def _select_point(self):
     for poly in self.polygons:
