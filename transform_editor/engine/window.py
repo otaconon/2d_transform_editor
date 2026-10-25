@@ -53,12 +53,16 @@ class Window:
    
   def render(self) -> bool:
     img = np.full((900, 900, 3), 10, np.uint8)
-    self._wait_key()
+    
+    key = cv.waitKey(16)
+    if key == ord('q'): self.should_close = True
+    elif key in MODES: self.state.mode = MODES[key][0]
     
     if not self._is_open() or self.should_close:
       return False
     
-    self._draw_keybinds(img)
+    for i, (_, text) in enumerate(MODES.values()):
+      cv.putText(img, text, (50, 50+25*i), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
      
     cv.polylines(img, [poly.pts for poly in self.polygons], True, (0, 255, 255))
     for poly in self.polygons:
@@ -70,70 +74,35 @@ class Window:
     
     return True
   
-  def _draw_keybinds(self, img):
-    for i, (_, text) in enumerate(MODES.values()):
-      cv.putText(img, text, (50, 50+25*i), cv.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
-  
   def _on_mouse(self, event, x, y, flags, _: Any):
     self.state.cursor = np.array([x, y])
+    mode = self.state.mode
     
-    match event:
-      case cv.EVENT_LBUTTONDOWN:
-        self._on_mb_down()
-      case cv.EVENT_LBUTTONUP:
-        self._on_mb_up()
-      case cv.EVENT_MOUSEMOVE:
-        self._on_mouse_move()
-          
-  def _on_mb_down(self):
-    self.state.mb_down = True
-    self.state.action_start = self.state.cursor.copy()
-    
-    if self.state.mode != Mode.DRAW:
-      self._select_point()
-    else: 
-      self.state.mode = Mode.DRAW
+    if (event, mode) == (cv.EVENT_LBUTTONDOWN, Mode.DRAW):
       self.polygons.append(Poly(np.tile(self.state.cursor, (4, 1))))
-      self.state.selected = (self.polygons[-1], 2)
-      
-  def _on_mb_up(self):
-    self.state.mb_down = False
-    if (sel := self.state.selected): sel[0].set_origin()
-    self.state.selected = None
-      
-  def _on_mouse_move(self):
-    if not self.state.mb_down: return
+    if event == cv.EVENT_LBUTTONDOWN:
+      self.state.mb_down, self.state.action_start = True, self.state.cursor.copy()
+      self.state.selected = next(((poly, i) for poly in self.polygons for (i, p) in enumerate(poly.pts) if np.sum((p - self.state.cursor)**2) <= 625), None) if mode != Mode.DRAW else (self.polygons[-1], 2)
+    if event == cv.EVENT_LBUTTONUP and self.state.selected is not None: self.state.selected[0].set_origin()
+    if event == cv.EVENT_LBUTTONUP: self.state.mb_down, self.state.selected = False, None
+    
+    if not self.state.mb_down or event != cv.EVENT_MOUSEMOVE: return
     x, y = self.state.cursor
     x0, y0 = self.state.action_start
     dx, dy = self.state.cursor - self.state.action_start
-    match self.state.mode, self.state.selected:
-      case Mode.DRAW, (poly, _):
-        poly.pts = np.array([[x0, y0], [x0, y], [x, y], [x, y0]])
-      case Mode.DEFORM_TRANS, (poly, _):
-        poly.pts[:] = poly.origin_pts + [dx, dy]
-        #T = np.array([[1,0,dx],[0,1,dy],[0,0,1]])
-        #self.state.selected_poly.pts[:] = [(T @ np.r_[p, 1])[:2] for p in self.state.selected_poly.origin_pts]
-      case Mode.DEFORM_RIGID, (poly, pt):
-        center = poly.origin_pts.mean(axis=0)
-        r, v = self.state.action_start - center, self.state.cursor - center
-        if (denom := np.hypot(*r) * np.hypot(*v)) > 1e-8:
-          c, s = (r @ v) / denom, (r[0] * v[1] - r[1] * v[0]) / denom
-          R = np.array([[c, -s], [s, c]])
-          poly.pts[:] = np.rint((poly.origin_pts - center) @ R.T + center)
-        
-      case Mode.DEFORM_SIMILAR: pass
-      case Mode.DEFORM_AFFINE: pass
-      case Mode.DEFORM_PERSPECTIVE, (poly, pt):
-        poly.pts[pt] = self.state.cursor
-  
-  def _wait_key(self):
-    key = cv.waitKey(16)
-    if key == ord('q'): self.should_close = True
-    elif key in MODES: self.state.mode = MODES[key][0]
-      
-  def _select_point(self):
-    for poly in self.polygons:
-      d2 = np.sum((poly.pts - self.state.cursor) ** 2, axis=1)
-      if (idx := int(np.argmin(d2))) >= 0 and d2[idx] <= 625:
-        self.state.selected = (poly, idx)
-        return
+    if self.state.selected == None: return
+    poly, pt = self.state.selected
+    if mode == Mode.DRAW: poly.pts = np.array([[x0, y0], [x0, y], [x, y], [x, y0]])
+    if mode == Mode.DEFORM_TRANS: poly.pts[:] = poly.origin_pts + [dx, dy]
+      #T = np.array([[1,0,dx],[0,1,dy],[0,0,1]])
+      #self.state.selected_poly.pts[:] = [(T @ np.r_[p, 1])[:2] for p in self.state.selected_poly.origin_pts]
+    if mode == Mode.DEFORM_RIGID:
+      center = poly.origin_pts.mean(axis=0)
+      r, v = self.state.action_start - center, self.state.cursor - center
+      if (denom := np.hypot(*r) * np.hypot(*v)) <= 1e-8: return
+      c, s = (r @ v) / denom, (r[0] * v[1] - r[1] * v[0]) / denom
+      R = np.array([[c, -s], [s, c]])
+      poly.pts[:] = np.rint((poly.origin_pts - center) @ R.T + center)
+    if mode == Mode.DEFORM_SIMILAR: pass
+    if mode == Mode.DEFORM_AFFINE: pass
+    if mode == Mode.DEFORM_PERSPECTIVE: poly.pts[pt] = self.state.cursor
